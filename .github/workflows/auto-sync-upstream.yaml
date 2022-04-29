@@ -1,0 +1,58 @@
+# Automatically fetch and merge upstream master branch and tags
+
+name: Scheduled Sync Upstream Action
+on:
+  schedule:
+    # scheduled every 6 hours
+    - cron: '0 */6 * * *'
+  
+  workflow_dispatch: # on button click
+    inputs:
+      upstream:
+        description: 'Upstream repository (eg. linuxmint/cinnamon)'
+        required: true
+        default: 'linuxmint/cjs'       # set the upstream repo
+      upstream-branch:
+        description: 'Upstream branch to merge from. Eg. master'
+        required: true
+        default: 'master'           # set the upstream branch to merge from
+      branch:
+        description: 'Branch to merge to'
+        required: true
+        default: 'master'         # set the branch to merge to
+
+jobs:
+  # This workflow contains a single job called "sync-upstream"
+  sync-upstream:
+    runs-on: ubuntu-latest
+    steps:
+      # Set default branches when run as scheduled job
+      - name: Set the branches
+        env:
+          DEFAULT_UPSTREAM: 'linuxmint/cjs'      # set the upstream repo
+          DEFAULT_UPSTREAM_BRANCH: 'master'           # set the upstream branch to merge from
+          DEFAULT_BRANCH: 'master'                    # set the branch to merge to
+        run: |
+          echo "upstream=${{ github.event.inputs.upstream || env.DEFAULT_UPSTREAM }}" >> $GITHUB_ENV
+          echo "upstream-branch=${{ github.event.inputs.upstream-branch || env.DEFAULT_UPSTREAM_BRANCH }}" >> $GITHUB_ENV
+          echo "branch=${{ github.event.inputs.branch || env.DEFAULT_BRANCH }}" >> $GITHUB_ENV
+      
+      - name: Checkout
+        uses: actions/checkout@v3
+        with:
+          ref: ${{ env.branch }}             # set the branch to merge to
+          # Number of commits to fetch. 0 indicates all history for all branches and tags.
+          fetch-depth: 0
+      
+      - name: Fetch and Merge Upstream Branch
+        uses: exions/merge-upstream@v1
+        with:
+          upstream: ${{ env.upstream }}
+          upstream-branch: ${{ env.upstream-branch }}
+          branch: ${{ env.branch }}
+          token: ${{ secrets.TOKEN }}
+      
+      - name: Push All Tags
+        run: |
+          git push origin --tags
+          
